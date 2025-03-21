@@ -4,7 +4,7 @@
 #include "hardware/clocks.h"
 
 void buzzer_init(uint8_t gpio) {
-    gpio_set_funcion(gpio, GPIO_FUNC_PWM);
+    gpio_set_function(gpio, GPIO_FUNC_PWM);
     uint slice_num = pwm_gpio_to_slice_num(gpio);
     pwm_set_enabled(slice_num, false);
 }

@@ -48,7 +48,7 @@ pico_set_program_version(bitdoglab-app "0.1")
 pico_enable_stdio_uart(bitdoglab-app 1)
 pico_enable_stdio_usb(bitdoglab-app 1)
 
-pico_generate_pio_header(bitdoglab-app ${CMAKE_CURRENT_LIST_DIR}/include/ws2818.pio)
+pico_generate_pio_header(bitdoglab-app ${CMAKE_CURRENT_LIST_DIR}/include/ws2818b.pio)
 
 # Add the standard library to the build
 target_link_libraries(bitdoglab-app
