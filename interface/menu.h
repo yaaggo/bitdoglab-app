@@ -6,8 +6,7 @@
 #include <include/display.h>
 
 typedef enum {
-    MENU_INITIAL_1,
-    MENU_INITIAL_2,
+    MENU_INITIAL,
     MENU_LED,
     MENU_MATRIX,
     MENU_JOYSTICK,
@@ -16,14 +15,8 @@ typedef enum {
     MENU_DISPLAY
 } menu_states;
 
-typedef struct {
-    bool selected;
-    uint8_t x, y;
-    const uint8_t idle[128];
-    const uint8_t selected[128];
-} button;
+void menu_initial_handle(uint8_t page, uint8_t cursor, display *dp);
+void menu_led_handle(uint8_t cursor, uint8_t selecteds, display *dp);
 
-void menu_update(menu_states current_menu, display *dp);
-void menu_initial_draw(uint8_t page, uint8_t selected_button, display *dp);
 
 #endif
