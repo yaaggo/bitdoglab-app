@@ -25,6 +25,7 @@ int main() {
                     menu_initial_cursor, 
                     &dp
                 );
+            break;
         }
         sleep_ms(50);
 
