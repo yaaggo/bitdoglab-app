@@ -37,9 +37,12 @@ void display_draw_char(int x, int y, char c, bool on, display *display);
 void display_draw_string(int x, int y, const char *str, bool on, display *display);
 void display_shutdown(display *display);
 void display_draw_rectangle(int x0, int y0, int x1, int y1, bool filled, bool on, display *display);
-void display_draw_bitmap(int x, int y, 
-                        const uint8_t *bitmap,
-                        int w, int h, int rotation, 
-                        bool on, display *display);
+void display_draw_bitmap(
+    int x, int y, 
+    const uint8_t *bitmap,
+    int w, int h, int rotation, 
+    bool on, display *display
+);
+void display_draw_circle(int xc, int yc, int radius, bool filled, bool on, display *display);
 
 #endif

@@ -16,7 +16,9 @@ void setup() {
 int main() {
     stdio_init_all();
     setup();
-    
+
+    display_draw_circle(64, 32, 30, true, true, &dp);
+
     while(true) {
         switch(menu_actual_state) {
             case MENU_INITIAL:
@@ -28,7 +30,6 @@ int main() {
             break;
         }
         sleep_ms(50);
-
         display_update(&dp);
     }
 }

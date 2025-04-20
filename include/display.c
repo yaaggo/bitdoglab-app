@@ -230,22 +230,42 @@ void display_draw_rectangle(int x0, int y0, int x1, int y1, bool filled, bool on
     }
 }
 
-// apaga e desliga o display
-void display_shutdown(display *display) {
+// implementação do Midpoint Circle Algorithm
+void display_draw_circle(int xc, int yc, int radius, bool filled, bool on, display *display) {
+    int x = 0;
+    int y = radius;
+    int d = 1 - radius;
 
-    display_clear(display);
-    display_update(display);
+    while (y >= x) {
+        if (filled) {
+            for (int i = xc - x; i <= xc + x; i++) {
+                display_draw_pixel(i, yc + y, on, display);
+                display_draw_pixel(i, yc - y, on, display);
+            }
+            for (int i = xc - y; i <= xc + y; i++) {
+                display_draw_pixel(i, yc + x, on, display);
+                display_draw_pixel(i, yc - x, on, display);
+            }
+        } else {
+            display_draw_pixel(xc + x, yc + y, on, display);
+            display_draw_pixel(xc - x, yc + y, on, display);
+            display_draw_pixel(xc + x, yc - y, on, display);
+            display_draw_pixel(xc - x, yc - y, on, display);
+            display_draw_pixel(xc + y, yc + x, on, display);
+            display_draw_pixel(xc - y, yc + x, on, display);
+            display_draw_pixel(xc + y, yc - x, on, display);
+            display_draw_pixel(xc - y, yc - x, on, display);
+        }
 
-    ssd1306_send_command(0xAE); // display OFF
+        x++;
 
-    ssd1306_send_command(0x8D); // charge Pump
-    ssd1306_send_command(0x10); // desativa
-
-    i2c_deinit(I2C_PORT);
-    gpio_set_function(SDA_PIN, GPIO_FUNC_NULL);
-    gpio_set_function(SCL_PIN, GPIO_FUNC_NULL);
-
-    display->initialized = false;
+        if (d < 0) {
+            d += 2 * x + 1;
+        } else {
+            y--;
+            d += 2 * (x - y) + 1;
+        }
+    }
 }
 
 void display_draw_bitmap(int x, int y, const uint8_t *bitmap, int w, int h, int rotation, bool on, display *display) {
@@ -285,4 +305,22 @@ void display_draw_bitmap(int x, int y, const uint8_t *bitmap, int w, int h, int 
             }
         }
     }
+}
+
+// apaga e desliga o display
+void display_shutdown(display *display) {
+
+    display_clear(display);
+    display_update(display);
+
+    ssd1306_send_command(0xAE); // display OFF
+
+    ssd1306_send_command(0x8D); // charge Pump
+    ssd1306_send_command(0x10); // desativa
+
+    i2c_deinit(I2C_PORT);
+    gpio_set_function(SDA_PIN, GPIO_FUNC_NULL);
+    gpio_set_function(SCL_PIN, GPIO_FUNC_NULL);
+
+    display->initialized = false;
 }
