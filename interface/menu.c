@@ -77,6 +77,7 @@ void menu(display *dp) {
 				if (menu_cursor == 2 && menu_page == 1) {
 					state = MENU_DISPLAY;
 				}
+				button_clear_event();
 			}
 			
 			menu_initial_handle(menu_page, menu_cursor, dp);
@@ -110,8 +111,8 @@ void menu(display *dp) {
 
 	if (button_get_event() == BUTTON_B) {
 		state = MENU_INITIAL;
+		button_clear_event();
 	}
-	button_clear_event();
 }
 
 void menu_initial_handle(uint8_t page, uint8_t cursor, display *dp) {
@@ -204,7 +205,10 @@ void menu_matrix_handle(display *dp) {
 }
 
 void menu_joystick_handle(display *dp) {
-	display_draw_rectangle(30, 30, 50, 50, true, true, dp);
+	int8_t y = joystick_read(JOYSTICK_Y_PIN, 0, 30);
+	int8_t x = joystick_read(JOYSTICK_X_PIN, 0, 30);
+	display_draw_circle(64, 32, 30, false, true, dp);
+	display_draw_circle(64 + x, 32 - y, 10, false, true, dp);
 }
 
 void menu_buzzer_handle(display *dp) {
