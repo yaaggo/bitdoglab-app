@@ -2,10 +2,13 @@
 #include "include/joystick.h"
 #include "include/button.h"
 #include "include/led.h"
+#include "include/buzzer.h"
+#include "include/matrix.h"
 #include "pico/bootrom.h"
 #include <stdio.h>
 
 #define DEBUG(VAR) printf("%s: %d\n", #VAR, VAR)
+#define WRAP_CURSOR(value, max) (value + max) % max
 
 const uint8_t bitdoglab_logo	 	   [];
 const uint8_t led_button_idle	 	   [];
@@ -30,56 +33,25 @@ volatile int8_t menu_page = 0;
 volatile int8_t led_cursor = 0;
 volatile int8_t led_selected[3] = {0, 0, 0};
 
+volatile uint8_t buzzer_x = 15;
+volatile uint8_t buzzer_on = 0;
+
+volatile uint8_t cube_x = DISPLAY_WIDTH / 2 - 4;
+volatile uint8_t cube_y = DISPLAY_HEIGHT / 2 - 4;
+
+volatile bool grid[5][5] = { 0 };
+volatile uint8_t grid_x = 0;
+volatile uint8_t grid_y = 0;
+const uint8_t GRID_ROWS = 5;
+const uint8_t GRID_COLS = 5;
+const uint8_t GRID_CELL_SIZE = 10;
+const uint8_t GRID_GAP = 1;
+const uint8_t GRID_MARGIN_TOP = 5;
+
+
 void menu(display *dp) {
-	int8_t direction = joystick_read(JOYSTICK_X_PIN, 10, 50);
-	DEBUG(direction);
-	DEBUG(menu_cursor);
-	DEBUG(menu_page);
-
-	if(button_get_event() == BUTTON_JOYSTICK) {
-		display_shutdown(dp);
-		reset_usb_boot(0, 0);
-	}
-
 	switch(state) {
 		case MENU_INITIAL:
-			// trocar esse if aninhando por algo mais organizado
-			if (direction > 0) {
-				menu_cursor++;
-				if (menu_cursor > 2) {
-					menu_cursor = 0;
-					menu_page = menu_page > 0 ? 0 : 1;
-				}
-			} else if(direction < 0) {
-				menu_cursor--;
-				if (menu_cursor < 0) {
-					menu_cursor = 2;
-					menu_page = menu_page > 0 ? 0 : 1;
-				}
-			}
-			
-			if (button_get_event() == BUTTON_A) {
-				if (menu_cursor == 0 && menu_page == 0) {
-					state = MENU_LED;
-				}
-				if (menu_cursor == 1 && menu_page == 0) {
-					state = MENU_MATRIX;
-				}
-				if (menu_cursor == 2 && menu_page == 0) {
-					state = MENU_JOYSTICK;
-				}
-				if (menu_cursor == 0 && menu_page == 1) {
-					state = MENU_BUZZER;
-				}
-				if (menu_cursor == 1 && menu_page == 1) {
-					state = MENU_MIC;
-				}
-				if (menu_cursor == 2 && menu_page == 1) {
-					state = MENU_DISPLAY;
-				}
-				button_clear_event();
-			}
-			
 			menu_initial_handle(menu_page, menu_cursor, dp);
 		break;
 
@@ -108,7 +80,6 @@ void menu(display *dp) {
 		break;
 			
 	}
-
 	if (button_get_event() == BUTTON_B) {
 		state = MENU_INITIAL;
 		button_clear_event();
@@ -116,6 +87,34 @@ void menu(display *dp) {
 }
 
 void menu_initial_handle(uint8_t page, uint8_t cursor, display *dp) {
+	int8_t direction = joystick_read(JOYSTICK_X_PIN, 10, 50);
+	DEBUG(direction);
+	DEBUG(menu_cursor);
+	DEBUG(menu_page);
+
+	if(button_get_event() == BUTTON_JOYSTICK) {
+		display_shutdown(dp);
+		button_clear_event();
+		reset_usb_boot(0, 0);
+	}
+
+	if (direction > 0) {
+		menu_cursor = WRAP_CURSOR(menu_cursor + 1, 3);
+		if (menu_cursor == 0) menu_page = !menu_page;
+	} else if(direction < 0) {
+		menu_cursor = WRAP_CURSOR(menu_cursor - 1, 3);
+		if (menu_cursor == 2) menu_page = !menu_page;
+	}
+	
+	if (button_get_event() == BUTTON_A) {
+		const menu_states pages[2][3] = {
+			{MENU_LED, MENU_MATRIX, MENU_JOYSTICK},
+			{MENU_BUZZER, MENU_MIC, MENU_DISPLAY}
+		};
+		state = pages[menu_page][menu_cursor];
+		button_clear_event();
+	}
+
     display_draw_bitmap(18, 2, bitdoglab_logo, 90, 12, 0, true, dp);
 	if(page == 0) {
 		display_draw_bitmap(
@@ -168,15 +167,9 @@ void menu_led_handle(display *dp) {
 	DEBUG(direction);
 
 	if (direction < 0) {
-		led_cursor++;
-		if (led_cursor > 2) {
-			led_cursor = 0;
-		}
+		led_cursor = WRAP_CURSOR(led_cursor + 1, 3);
 	} else if(direction > 0) {
-		led_cursor--;
-		if (led_cursor < 0) {
-			led_cursor = 2;
-		}
+		led_cursor = WRAP_CURSOR(led_cursor - 1, 3);
 	}
 
 	if (button_get_event() == BUTTON_A) {
@@ -201,7 +194,44 @@ void menu_led_handle(display *dp) {
 }
 
 void menu_matrix_handle(display *dp) {
-	display_draw_rectangle(20, 20, 50, 50, true, true, dp);
+	const uint8_t grid_total_width = GRID_COLS * GRID_CELL_SIZE + (GRID_COLS - 1) * GRID_GAP;
+    const uint8_t grid_start_x = (DISPLAY_WIDTH - grid_total_width) / 2;
+    const uint8_t grid_start_y = GRID_MARGIN_TOP;
+
+	int16_t joystick_x = joystick_read(JOYSTICK_X_PIN, 10, 30);
+	int16_t joystick_y = joystick_read(JOYSTICK_Y_PIN, 10, 30);
+
+	if (joystick_x > 0) {
+		grid_x = WRAP_CURSOR(grid_x + 1, 5);
+	} else if(joystick_x < 0) {
+		grid_x = WRAP_CURSOR(grid_x - 1, 5);
+	}
+
+	if (joystick_y < 0) {
+		grid_y = WRAP_CURSOR(grid_y + 1, 5);
+	} else if(joystick_y > 0) {
+		grid_y = WRAP_CURSOR(grid_y - 1, 5);
+	}
+
+	if (button_get_event() == BUTTON_A) {
+		grid[grid_y][grid_x] = !grid[grid_y][grid_x];
+		matrix_set_led_horizontally(grid_y * 5 + grid_x, COLOR_RGB(30 * grid[grid_y][grid_x], 30 * grid[grid_y][grid_x], 30 * grid[grid_y][grid_x]) );
+		matrix_update();
+		button_clear_event();
+	}
+
+    for (uint8_t row = 0; row < GRID_ROWS; row++) {
+        for (uint8_t col = 0; col < GRID_COLS; col++) {
+            const uint8_t x = grid_start_x + col * (GRID_CELL_SIZE + GRID_GAP);
+            const uint8_t y = grid_start_y + row * (GRID_CELL_SIZE + GRID_GAP);
+            display_draw_rectangle(x, y, x + GRID_CELL_SIZE - 1, y + GRID_CELL_SIZE - 1, false, true, dp);
+			display_draw_rectangle(x, y, x + GRID_CELL_SIZE - 1, y + GRID_CELL_SIZE - 1, grid[row][col], true, dp);
+			if (grid_x == col && grid_y == row)
+				display_draw_rectangle(x+1, y+1, x + GRID_CELL_SIZE - 2, y + GRID_CELL_SIZE - 2, false, !grid[row][col], dp);
+        }
+    }
+
+	// aqui tem a lógica para usar o joystick
 }
 
 void menu_joystick_handle(display *dp) {
@@ -212,16 +242,60 @@ void menu_joystick_handle(display *dp) {
 }
 
 void menu_buzzer_handle(display *dp) {
-	display_draw_rectangle(40, 40, 50, 50, true, true, dp);
+	uint8_t max_x = 113, min_x = 15;
+	int8_t x = joystick_read(JOYSTICK_X_PIN, 0, 10);
+	display_draw_rectangle(14, 20, 114, 40, false, true, dp);
+
+	if(buzzer_x + x <= max_x && buzzer_x + x >= min_x)
+		buzzer_x += x; 
+
+	display_draw_rectangle(15, 21, buzzer_x, 39, true, true, dp);
+
+	if (button_get_event() == BUTTON_A) {
+		buzzer_on = !buzzer_on;
+		if(buzzer_on)
+			buzzer_turn_on(BUZZER_A_PIN, 20 * buzzer_x);
+		else
+			buzzer_turn_on(BUZZER_A_PIN, 0);
+		button_clear_event();
+	}
+
+	if(buzzer_on) {
+		display_draw_rectangle(44, 44, 84, 60, true, true, dp);
+		display_draw_string(50, 48, "PLAY", false, dp);
+	} else {
+		display_draw_rectangle(44, 44, 84, 60, false, true, dp);
+		display_draw_string(50, 49, "PLAY", true, dp);
+	}
+
 }
 
 // não vai ser feito por agora
 void menu_mic_handle(display *dp) {
-	display_draw_char(32, 64, '?', true, dp);
+	display_draw_string(32, 22, "nada aqui", true, dp);
 }
 
 void menu_display_handle(display *dp) {
-	display_draw_rectangle(60, 50, 100, 60, true, true, dp);
+    uint8_t previous_cube_x = cube_x;
+    uint8_t previous_cube_y = cube_y;
+
+	int16_t joystick_x = joystick_read(JOYSTICK_X_PIN, 0, 15);
+	int16_t joystick_y = -joystick_read(JOYSTICK_Y_PIN, 0, 15);
+
+	display_draw_rectangle(0, 0, 127, 63, false, true, dp);
+    display_draw_rectangle(cube_x, cube_y, cube_x + 8, cube_y + 8, true, true, dp);
+
+	cube_x = (cube_x + joystick_x + DISPLAY_WIDTH) % DISPLAY_WIDTH;
+    cube_y = (cube_y + joystick_y + DISPLAY_HEIGHT) % DISPLAY_HEIGHT;
+
+	if(previous_cube_x != cube_x || previous_cube_y != cube_y) {
+		display_draw_rectangle(previous_cube_x, previous_cube_y, previous_cube_x + 8, previous_cube_y + 8, true, false, dp);
+		display_draw_rectangle(cube_x, cube_y, cube_x + 8, cube_y + 8, true, true, dp);
+		previous_cube_x = cube_x;
+		previous_cube_y = cube_y;
+	}
+
+	display_draw_rectangle(0, 0, 127, 63, false, true, dp);   
 }
 
 

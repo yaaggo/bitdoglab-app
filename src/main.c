@@ -4,16 +4,25 @@
 #include "include/joystick.h"
 #include "include/button.h"
 #include "include/led.h"
+#include "include/buzzer.h"
+#include "include/matrix.h"
 
 display dp;
 
 void setup() {
     display_init(&dp);
+
     joystick_init(JOYSTICK_X_PIN, JOYSTICK_Y_PIN);
+
     button_init();
+
     led_init(LED_RED_PIN);
     led_init(LED_GREEN_PIN);
     led_init(LED_BLUE_PIN);
+
+    buzzer_init(BUZZER_A_PIN);
+
+    matrix_init(MATRIX_LED_PIN);
 }
 
 int main() {
